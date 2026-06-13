@@ -19,6 +19,45 @@ Then you should follow the [document][2] to create an application in authentik.
 
 [2]: https://docs.goauthentik.io/install-config/first-steps/
 
+You can get a token with username and app password using `/application/o/token`
+endpoint.
+
+> [!NOTE]
+> App password is not your account password. It can be generated at Credentials
+> tab in your user settings page.
+
+Example Python script:
+
+```python
+import requests
+
+
+AUTHENTIK_BASE_URL = "http://localhost:9000"
+CLIENT_ID = "zaimI2..."
+USERNAME = "foo"
+APP_PASSWORD = "UHcG5b..."
+
+token_url = f"{AUTHENTIK_BASE_URL}/application/o/token/"
+data = {
+    "grant_type": "password",
+    "username": USERNAME,
+    "password": APP_PASSWORD,
+    "client_id": CLIENT_ID,
+    "scope": "openid profile email",
+}
+headers = {
+    "Content-Type": "application/x-www-form-urlencoded",
+}
+response = requests.post(
+    token_url,
+    data=data,
+    headers=headers,
+)
+response.raise_for_status()
+
+print(response.json()["access_token"])
+```
+
 ## Settings
 
 This application loads settings at `config.toml`.
