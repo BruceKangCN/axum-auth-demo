@@ -7,6 +7,8 @@ use oauth2::{
     RedirectUrl, RevocationUrl, TokenUrl,
 };
 use tower_http::cors::{Any, CorsLayer};
+use utoipa_axum::{router::OpenApiRouter, routes};
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     handler::*,
@@ -63,9 +65,14 @@ impl AppState {
 }
 
 pub fn create_app(state: AppState) -> Router {
-    Router::new()
-        .merge(greet::router())
-        .merge(info::router())
+    let (router, api) = OpenApiRouter::new()
+        .routes(routes!(greet::handler))
+        .routes(routes!(info::handler))
+        .split_for_parts();
+    let swagger = SwaggerUi::new("/swagger-ui").url("/openapi.json", api);
+
+    router
+        .merge(swagger)
         .with_state(Arc::new(state))
         .layer(CorsLayer::new().allow_origin(Any))
 }

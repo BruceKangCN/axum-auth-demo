@@ -1,13 +1,6 @@
-use std::sync::Arc;
+use crate::oauth2::AuthenticatedUser;
 
-use axum::{Router, routing::get};
-
-use crate::{app::AppState, oauth2::AuthenticatedUser};
-
-async fn handler(user: AuthenticatedUser) -> String {
+#[utoipa::path(get, path = "/greet", responses((status = OK, body = String)))]
+pub async fn handler(user: AuthenticatedUser) -> String {
     format!("Hello, {}!", &user.username)
-}
-
-pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/greet", get(handler))
 }

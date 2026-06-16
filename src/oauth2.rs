@@ -11,6 +11,7 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+use utoipa::ToSchema;
 
 use crate::{app::AppState, settings::ApplicationSettings};
 
@@ -59,7 +60,7 @@ pub async fn init_jwk_set_refresh(settings: &ApplicationSettings) -> anyhow::Res
     Ok(key_cache)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, ToSchema)]
 pub struct AuthenticatedUser {
     pub username: String,
     pub sub: String,

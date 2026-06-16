@@ -1,13 +1,8 @@
-use std::sync::Arc;
+use axum::Json;
 
-use axum::{Json, Router, routing::get};
+use crate::oauth2::AuthenticatedUser;
 
-use crate::{app::AppState, oauth2::AuthenticatedUser};
-
-async fn handler(user: AuthenticatedUser) -> Json<AuthenticatedUser> {
+#[utoipa::path(get, path = "/info", responses((status = OK, body = AuthenticatedUser)))]
+pub async fn handler(user: AuthenticatedUser) -> Json<AuthenticatedUser> {
     Json(user)
-}
-
-pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/info", get(handler))
 }
