@@ -14,6 +14,12 @@ pub struct AppState {
     pub key_cache: KeyCache,
 }
 
+impl AppState {
+    pub async fn from_settings(settings: &ApplicationSettings) -> anyhow::Result<AppState> {
+        todo!()
+    }
+}
+
 pub fn init_tracing() {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer().pretty())
@@ -22,7 +28,5 @@ pub fn init_tracing() {
 }
 
 pub async fn init_listener(settings: &ServerSettings) -> tokio::io::Result<TcpListener> {
-    let host = settings.host.as_deref().unwrap_or("localhost");
-    let port = settings.port.unwrap_or(3000);
-    TcpListener::bind((host, port)).await
+    TcpListener::bind((settings.host.as_str(), settings.port)).await
 }

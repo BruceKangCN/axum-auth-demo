@@ -6,12 +6,13 @@ mod settings;
 use std::sync::Arc;
 
 use anyhow::Context;
-use axum::{Router, routing::get};
+use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
     auth::init_jwk_set_refresh,
     common::{AppState, init_listener, init_tracing},
+    handler::*,
     settings::load_settings,
 };
 
@@ -30,8 +31,8 @@ async fn main() -> anyhow::Result<()> {
         key_cache: key_cache.clone(),
     };
     let app = Router::new()
-        .route("/greet", get(handler::greet))
-        .route("/info", get(handler::info))
+        .merge(greet::router())
+        .merge(info::router())
         .with_state(state)
         .layer(CorsLayer::new().allow_origin(Any));
 

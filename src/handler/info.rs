@@ -1,7 +1,11 @@
-use axum::Json;
+use axum::{Json, Router, routing::get};
 
-use crate::auth::AuthenticatedUser;
+use crate::{auth::AuthenticatedUser, common::AppState};
 
-pub async fn info_handler(user: AuthenticatedUser) -> Json<AuthenticatedUser> {
+async fn handler(user: AuthenticatedUser) -> Json<AuthenticatedUser> {
     Json(user)
+}
+
+pub fn router() -> Router<AppState> {
+    Router::new().route("/info", get(handler))
 }

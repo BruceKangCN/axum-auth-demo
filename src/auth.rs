@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use axum::{
@@ -10,14 +10,14 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use jsonwebtoken::{DecodingKey, decode_header, jwk::JwkSet};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::{common::AppState, settings::ApplicationSettings};
 
-type KeyMap = HashMap<String, DecodingKey>;
-pub type KeyCache = Arc<RwLock<KeyMap>>;
+pub type KeyCache = Arc<RwLock<JwkSet>>;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 struct Claims {
@@ -25,21 +25,11 @@ struct Claims {
     pub preferred_username: String,
 }
 
-async fn fetch_jwk_set(url: &str) -> anyhow::Result<HashMap<String, DecodingKey>> {
+async fn fetch_jwk_set(url: &str) -> anyhow::Result<JwkSet> {
     let resp = reqwest::get(url).await.context("failed to fetch JWKS")?;
     let jwk_set: JwkSet = resp.json().await.context("failed to parse JWKS")?;
 
-    let mut map = KeyMap::new();
-    for key in jwk_set.keys {
-        let decoding_key = DecodingKey::from_jwk(&key).context("invalid JWK")?;
-        let kid = match key.common.key_id {
-            Some(kid) => kid,
-            None => continue, // TODO: warn about missing key ID
-        };
-        map.insert(kid, decoding_key);
-    }
-
-    Ok(map)
+    Ok(jwk_set)
 }
 
 async fn jwk_set_refresh(cache: KeyCache, jwk_set_url: &str) {
@@ -55,16 +45,18 @@ async fn jwk_set_refresh(cache: KeyCache, jwk_set_url: &str) {
 }
 
 pub async fn init_jwk_set_refresh(settings: &ApplicationSettings) -> anyhow::Result<KeyCache> {
-    const DEFAULT_URL: &str = "http://localhost:9000/application/o/demo/jwks/";
-
-    let jwk_set_url = settings.jwk_set_url.as_deref().unwrap_or(DEFAULT_URL);
-    let initial_keys = fetch_jwk_set(jwk_set_url).await?;
+    let base_url =
+        Url::parse(&settings.authentik_base_url).context("failed to parse authentik base URL")?;
+    let jwk_set_url = base_url
+        .join("/application/o/jwks/")
+        .context("failed to build JWKS URL")?;
+    let initial_keys = fetch_jwk_set(jwk_set_url.as_str()).await?;
     let key_cache = Arc::new(RwLock::new(initial_keys));
 
     let jwk_set_url = jwk_set_url.to_owned();
     let key_cache_cloned = key_cache.clone();
     tokio::spawn(async move {
-        jwk_set_refresh(key_cache_cloned, &jwk_set_url).await;
+        jwk_set_refresh(key_cache_cloned, jwk_set_url.as_str()).await;
     });
 
     Ok(key_cache)
@@ -98,16 +90,20 @@ where
         let token = auth.token();
         let app_state = AppState::from_ref(state);
 
-        authenticate(token, app_state.key_cache.clone(), &app_state.settings.client_id)
-            .await
-            .map_err(|err| {
-                info!(?err, "authentication failed");
-                StatusCode::UNAUTHORIZED
-            })
+        decode_jwt(
+            token,
+            app_state.key_cache.clone(),
+            &app_state.settings.client_id,
+        )
+        .await
+        .map_err(|err| {
+            info!(?err, "authentication failed");
+            StatusCode::UNAUTHORIZED
+        })
     }
 }
 
-async fn authenticate(
+async fn decode_jwt(
     token: &str,
     key_cache: KeyCache,
     client_id: &str,
@@ -117,19 +113,27 @@ async fn authenticate(
         .kid
         .as_deref()
         .ok_or(anyhow::anyhow!("missing key ID"))?;
-    let key = key_cache
+    let jwk = key_cache
         .read()
         .await
-        .get(kid)
+        .find(kid)
         .ok_or(anyhow::anyhow!("key not found from key cache"))?
         .to_owned();
-    debug!(?header, kid, ?key, "get key for OAuth2 authentication");
+    let decoding_key =
+        DecodingKey::from_jwk(&jwk).context("failed to get decoding key from JWK")?;
+    debug!(
+        ?header,
+        kid,
+        ?jwk,
+        ?decoding_key,
+        "get key for OAuth2 authentication"
+    );
 
     let mut validation = jsonwebtoken::Validation::new(header.alg);
     validation.set_audience(&[client_id]);
     debug!(?validation, "create validation for OAuth2 authentication");
 
-    let data = jsonwebtoken::decode::<Claims>(token, &key, &validation).map_err(|e| {
+    let data = jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation).map_err(|e| {
         info!(?e, "error during JWT decoding");
         anyhow::anyhow!("error during JWT decoding")
     })?;

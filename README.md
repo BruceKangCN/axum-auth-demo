@@ -10,8 +10,8 @@ for usage.
 
 ## Requirement
 
-This application requires an external authorization provider. You can follow
-the [instructions][1] to setup authentik as provider.
+This application uses authentik as an external identity provider. You can
+follow the [instructions][1] to setup authentik.
 
 [1]: https://docs.goauthentik.io/install-config/install/docker-compose/
 
@@ -73,5 +73,7 @@ This application loads settings at `config.toml`.
   application.
 - `client-secret`: **Required**. Client secret of the proider. Not used yet.
   You can simply pass an empty string.
-- `jwk-set-url`: **Optional**. JSON Web Key Set API URL of the provider,
-  default to `http://localhost:9000/application/o/demo/jwks/`.
+- `authentik-base-url`: **Optional**. Base URL of authentik service, default to
+  `http://localhost:9000`.
+- `redirect-uri`: **Required**. The redirect URI for the OAuth flow. Not used
+  yet. You can simply pass an empty string.

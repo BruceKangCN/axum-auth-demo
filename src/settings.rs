@@ -10,8 +10,20 @@ pub struct Settings {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ServerSettings {
-    pub host: Option<String>,
-    pub port: Option<u16>,
+    #[serde(default = "ServerSettings::default_host")]
+    pub host: String,
+    #[serde(default = "ServerSettings::default_port")]
+    pub port: u16,
+}
+
+impl ServerSettings {
+    fn default_host() -> String {
+        "localhost".to_string()
+    }
+
+    fn default_port() -> u16 {
+        3000
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -21,7 +33,17 @@ pub struct ApplicationSettings {
     // TODO
     #[allow(unused)]
     pub client_secret: String,
-    pub jwk_set_url: Option<String>,
+    #[serde(default = "ApplicationSettings::default_authentik_base_url")]
+    pub authentik_base_url: String,
+    // TODO
+    #[allow(unused)]
+    pub redirect_uri: String,
+}
+
+impl ApplicationSettings {
+    fn default_authentik_base_url() -> String {
+        "http://localhost:9000".to_string()
+    }
 }
 
 pub async fn load_settings() -> anyhow::Result<Settings> {
