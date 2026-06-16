@@ -130,7 +130,6 @@ struct RefreshResponse {
 }
 
 #[utoipa::path(post, path = "/auth/refresh")]
-#[axum::debug_handler]
 pub async fn refresh(
     State(state): State<Arc<AppState>>,
     jar: CookieJar,
