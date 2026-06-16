@@ -18,7 +18,7 @@ use crate::{app::AppState, settings::ApplicationSettings};
 pub type KeyCache = Arc<RwLock<JwkSet>>;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-struct Claims {
+pub struct Claims {
     pub sub: String,
     pub preferred_username: String,
 }
@@ -97,16 +97,13 @@ fn decode_jwt(
     client_id: &str,
 ) -> anyhow::Result<AuthenticatedUser> {
     let header = decode_header(token).context("failed to decode JWT")?;
-    let kid = header
-        .kid
-        .as_deref()
-        .ok_or(anyhow::anyhow!("missing key ID"))?;
-    let jwk = key_cache
-        .find(kid)
-        .ok_or(anyhow::anyhow!("key not found from key set"))?
-        .to_owned();
-    let decoding_key =
-        DecodingKey::from_jwk(&jwk).context("failed to get decoding key from JWK")?;
+    let Some(kid) = header.kid.as_deref() else {
+        anyhow::bail!("missing key ID");
+    };
+    let Some(jwk) = key_cache.find(kid) else {
+        anyhow::bail!("key not found from key set");
+    };
+    let decoding_key = DecodingKey::from_jwk(jwk).context("failed to get decoding key from JWK")?;
     debug!(
         ?header,
         kid,

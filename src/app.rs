@@ -7,6 +7,7 @@ use oauth2::{
     RedirectUrl, RevocationUrl, TokenUrl,
 };
 use tower_http::cors::{Any, CorsLayer};
+use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer, cookie::time::Duration};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -25,18 +26,24 @@ pub struct AppState {
     pub key_cache: KeyCache,
     pub http_client: reqwest::Client,
     pub oauth2_client: OAuth2Client,
+    pub oauth2_request_client: oauth2::reqwest::Client,
 }
 
 impl AppState {
     pub async fn from_settings(settings: &ApplicationSettings) -> anyhow::Result<AppState> {
         let key_cache = init_jwk_set_refresh(settings).await?;
 
-        // avoid SSRF
         let http_client = reqwest::Client::builder()
             .user_agent(&settings.slug)
-            .redirect(reqwest::redirect::Policy::none())
             .build()
-            .context("failed to build reqwest client")?;
+            .context("failed to build HTTP client")?;
+
+        // avoid SSRF
+        let oauth2_request_client = oauth2::reqwest::Client::builder()
+            .user_agent(&settings.slug)
+            .redirect(oauth2::reqwest::redirect::Policy::none())
+            .build()
+            .context("failed to build request client of OAuth 2.0")?;
 
         let client_id = ClientId::new(settings.client_id.to_owned());
         let client_secret = ClientSecret::new(settings.client_secret.to_owned());
@@ -60,19 +67,29 @@ impl AppState {
             key_cache,
             http_client,
             oauth2_client,
+            oauth2_request_client,
         })
     }
 }
 
 pub fn create_app(state: AppState) -> Router {
     let (router, api) = OpenApiRouter::new()
+        .routes(routes!(auth::login))
+        .routes(routes!(auth::callback))
+        .routes(routes!(auth::refresh))
+        .routes(routes!(auth::logout))
         .routes(routes!(greet::handler))
         .routes(routes!(info::handler))
         .split_for_parts();
     let swagger = SwaggerUi::new("/swagger-ui").url("/openapi.json", api);
+    let cors_layer = CorsLayer::new().allow_origin(Any);
+    let session_layer = SessionManagerLayer::new(MemoryStore::default())
+        .with_secure(false)
+        .with_expiry(Expiry::OnInactivity(Duration::seconds(10)));
 
     router
         .merge(swagger)
         .with_state(Arc::new(state))
-        .layer(CorsLayer::new().allow_origin(Any))
+        .layer(cors_layer)
+        .layer(session_layer)
 }
