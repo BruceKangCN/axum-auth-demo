@@ -1,24 +1,7 @@
-use std::sync::Arc;
-
 use tokio::net::TcpListener;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::{
-    auth::KeyCache,
-    settings::{ApplicationSettings, ServerSettings},
-};
-
-#[derive(Clone, Debug)]
-pub struct AppState {
-    pub settings: Arc<ApplicationSettings>,
-    pub key_cache: KeyCache,
-}
-
-impl AppState {
-    pub async fn from_settings(settings: &ApplicationSettings) -> anyhow::Result<AppState> {
-        todo!()
-    }
-}
+use crate::settings::ServerSettings;
 
 pub fn init_tracing() {
     tracing_subscriber::registry()

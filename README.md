@@ -69,6 +69,7 @@ This application loads settings at `config.toml`.
 
 ### `app` section
 
+- `slug`: **Required**. Application slug.
 - `client-id`: **Required**. Client ID of the provider for the authentik
   application.
 - `client-secret`: **Required**. Client secret of the proider. Not used yet.

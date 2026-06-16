@@ -29,6 +29,7 @@ impl ServerSettings {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ApplicationSettings {
+    pub slug: String,
     pub client_id: String,
     // TODO
     #[allow(unused)]

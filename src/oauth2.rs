@@ -1,10 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
-use axum::{
-    extract::{FromRef, FromRequestParts},
-    http::StatusCode,
-};
+use axum::{extract::FromRequestParts, http::StatusCode};
 use axum_extra::{
     TypedHeader,
     headers::{Authorization, authorization::Bearer},
@@ -15,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use crate::{common::AppState, settings::ApplicationSettings};
+use crate::{app::AppState, settings::ApplicationSettings};
 
 pub type KeyCache = Arc<RwLock<JwkSet>>;
 
@@ -48,7 +45,7 @@ pub async fn init_jwk_set_refresh(settings: &ApplicationSettings) -> anyhow::Res
     let base_url =
         Url::parse(&settings.authentik_base_url).context("failed to parse authentik base URL")?;
     let jwk_set_url = base_url
-        .join("/application/o/jwks/")
+        .join(&format!("/application/o/{}/jwks/", &settings.slug))
         .context("failed to build JWKS URL")?;
     let initial_keys = fetch_jwk_set(jwk_set_url.as_str()).await?;
     let key_cache = Arc::new(RwLock::new(initial_keys));
@@ -68,16 +65,12 @@ pub struct AuthenticatedUser {
     pub sub: String,
 }
 
-impl<S> FromRequestParts<S> for AuthenticatedUser
-where
-    AppState: FromRef<S>,
-    S: Send + Sync,
-{
+impl FromRequestParts<Arc<AppState>> for AuthenticatedUser {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &S,
+        state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
         let auth =
             match TypedHeader::<Authorization<Bearer>>::from_request_parts(parts, state).await {
@@ -88,24 +81,18 @@ where
                 }
             };
         let token = auth.token();
-        let app_state = AppState::from_ref(state);
+        let jwk = state.key_cache.read().await.clone();
 
-        decode_jwt(
-            token,
-            app_state.key_cache.clone(),
-            &app_state.settings.client_id,
-        )
-        .await
-        .map_err(|err| {
+        decode_jwt(token, &jwk, &state.settings.client_id).map_err(|err| {
             info!(?err, "authentication failed");
             StatusCode::UNAUTHORIZED
         })
     }
 }
 
-async fn decode_jwt(
+fn decode_jwt(
     token: &str,
-    key_cache: KeyCache,
+    key_cache: &JwkSet,
     client_id: &str,
 ) -> anyhow::Result<AuthenticatedUser> {
     let header = decode_header(token).context("failed to decode JWT")?;
@@ -114,10 +101,8 @@ async fn decode_jwt(
         .as_deref()
         .ok_or(anyhow::anyhow!("missing key ID"))?;
     let jwk = key_cache
-        .read()
-        .await
         .find(kid)
-        .ok_or(anyhow::anyhow!("key not found from key cache"))?
+        .ok_or(anyhow::anyhow!("key not found from key set"))?
         .to_owned();
     let decoding_key =
         DecodingKey::from_jwk(&jwk).context("failed to get decoding key from JWK")?;
