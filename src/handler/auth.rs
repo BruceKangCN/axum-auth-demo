@@ -90,6 +90,7 @@ pub async fn callback(
 
     // store access token in cookie because redirect response cannot return data
     let access_token_cookie = Cookie::build((ACCESS_TOKEN_KEY, access_token.clone()))
+        .path("/")
         .http_only(false)
         .secure(false)
         .same_site(SameSite::Lax)
@@ -199,6 +200,7 @@ fn update_cookie_jar(
     };
 
     let cookie = Cookie::build((REFRESH_TOKEN_KEY, refresh_token.secret().to_owned()))
+        .path("/")
         .http_only(true)
         .secure(false)
         .same_site(SameSite::Lax)
