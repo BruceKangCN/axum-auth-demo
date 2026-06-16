@@ -70,11 +70,10 @@ This application loads settings at `config.toml`.
 ### `app` section
 
 - `slug`: **Required**. Application slug.
-- `client-id`: **Required**. Client ID of the provider for the authentik
+- `client-id`: **Required**. Client ID of the provider for the authentik.
   application.
-- `client-secret`: **Required**. Client secret of the proider. Not used yet.
-  You can simply pass an empty string.
+- `client-secret`: **Required**. Client secret of the proider.
 - `authentik-base-url`: **Optional**. Base URL of authentik service, default to
   `http://localhost:9000`.
-- `redirect-uri`: **Required**. The redirect URI for the OAuth flow. Not used
-  yet. You can simply pass an empty string.
+- `redirect-uri`: **Required**. The redirect URI for the OAuth flow.
+

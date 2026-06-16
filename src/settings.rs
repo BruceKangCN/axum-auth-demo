@@ -31,13 +31,9 @@ impl ServerSettings {
 pub struct ApplicationSettings {
     pub slug: String,
     pub client_id: String,
-    // TODO
-    #[allow(unused)]
     pub client_secret: String,
     #[serde(default = "ApplicationSettings::default_authentik_base_url")]
     pub authentik_base_url: String,
-    // TODO
-    #[allow(unused)]
     pub redirect_uri: String,
 }
 
