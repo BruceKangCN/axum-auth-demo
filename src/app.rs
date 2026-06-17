@@ -7,7 +7,9 @@ use oauth2::{
     RedirectUrl, RevocationUrl, TokenUrl,
 };
 use tower_http::cors::{Any, CorsLayer};
-use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer, cookie::time::Duration};
+use tower_sessions::{
+    Expiry, MemoryStore, SessionManagerLayer, cookie::SameSite, cookie::time::Duration,
+};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -87,7 +89,9 @@ pub fn create_app(state: AppState) -> Router {
     let cors_layer = CorsLayer::new().allow_origin(Any);
     let session_layer = SessionManagerLayer::new(MemoryStore::default())
         .with_secure(false)
-        .with_expiry(Expiry::OnInactivity(Duration::seconds(10)));
+        .with_same_site(SameSite::Lax)
+        .with_name("axum-auth-demo.sid")
+        .with_expiry(Expiry::OnInactivity(Duration::minutes(5)));
 
     router
         .merge(swagger)

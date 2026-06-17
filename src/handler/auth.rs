@@ -43,10 +43,20 @@ pub async fn login(
         .authorize_url(CsrfToken::new_random)
         .url();
 
+    debug!(session_id = ?session.id(), "login handler - session id");
+
     session
         .insert(CRSR_STATE_KEY, crsf_state.secret())
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    debug!(
+        session_id = ?session.id(),
+        csrf_state = crsf_state.secret(),
+        next_url = ?form.next,
+        "stored CSRF state in session"
+    );
+
     session
         .insert(NEXT_URL_KEY, form.next)
         .await
@@ -68,15 +78,30 @@ pub async fn callback(
     jar: CookieJar,
     Query(query): Query<CallbackQuery>,
 ) -> Result<impl IntoResponse, StatusCode> {
+    debug!(
+        session_id = ?session.id(),
+        query_state = query.state.secret(),
+        "callback handler - checking session"
+    );
+
     let Some(csrf_state) = session
         .get::<String>(CRSR_STATE_KEY)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     else {
+        debug!(
+            session_id = ?session.id(),
+            "session missing CSRF state!"
+        );
         return Err(StatusCode::BAD_REQUEST);
     };
 
     if &csrf_state != query.state.secret() {
+        debug!(
+            csrf_state,
+            expect = query.state.secret(),
+            "CSRF state validation failed!"
+        );
         return Err(StatusCode::BAD_REQUEST);
     }
 
