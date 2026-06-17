@@ -16,6 +16,7 @@ use oauth2::{
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
+use tracing::debug;
 use utoipa::ToSchema;
 
 use crate::{app::AppState, oauth2::Claims};
@@ -87,6 +88,7 @@ pub async fn callback(
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
     let access_token = token_response.access_token().secret().to_owned();
+    debug!(?access_token, "get access token");
 
     // store access token in cookie because redirect response cannot return data
     let access_token_cookie = Cookie::build((ACCESS_TOKEN_KEY, access_token.clone()))
@@ -111,9 +113,9 @@ pub async fn callback(
         .json()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    debug!(?profile, "get user profile");
 
     // TODO: save or update user profile and access token
-    dbg!(profile);
 
     let next_url = session
         .get(NEXT_URL_KEY)
@@ -167,6 +169,7 @@ pub async fn logout(
     Form(form): Form<LogoutForm>,
 ) -> Result<impl IntoResponse, StatusCode> {
     if let Some(token) = form.access_token {
+        debug!("revoke access token");
         let token = AccessToken::new(token);
         state
             .oauth2_client
@@ -178,6 +181,7 @@ pub async fn logout(
     }
 
     if let Some(cookie) = jar.get(REFRESH_TOKEN_KEY) {
+        debug!("revoke refresh token");
         let token = RefreshToken::new(cookie.value().to_owned());
         state
             .oauth2_client
@@ -188,7 +192,15 @@ pub async fn logout(
             .map_err(|_| StatusCode::BAD_GATEWAY)?;
     }
 
-    Ok(jar.remove(REFRESH_TOKEN_KEY))
+    debug!("removing refresh token cookie");
+    let refresh_token_cookie = Cookie::build(REFRESH_TOKEN_KEY)
+        .path("/")
+        .http_only(true)
+        .secure(false)
+        .same_site(SameSite::Lax)
+        .build();
+
+    Ok(jar.remove(refresh_token_cookie))
 }
 
 fn update_cookie_jar(

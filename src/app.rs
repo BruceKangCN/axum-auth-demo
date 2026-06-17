@@ -34,12 +34,14 @@ impl AppState {
         let key_cache = init_jwk_set_refresh(settings).await?;
 
         let http_client = reqwest::Client::builder()
+            .tls_danger_accept_invalid_certs(true)
             .user_agent(&settings.slug)
             .build()
             .context("failed to build HTTP client")?;
 
         // avoid SSRF
         let oauth2_request_client = oauth2::reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
             .user_agent(&settings.slug)
             .redirect(oauth2::reqwest::redirect::Policy::none())
             .build()
