@@ -8,7 +8,7 @@ use anyhow::Context;
 
 use crate::{
     app::{AppState, create_app},
-    common::{init_listener, init_tracing},
+    common::{graceful_shutdown_handler, init_listener, init_tracing},
     settings::load_settings,
 };
 
@@ -20,11 +20,13 @@ async fn main() -> anyhow::Result<()> {
     let listener = init_listener(&settings.server)
         .await
         .context("failed to create TCP listener")?;
+    let shutdown_handler = graceful_shutdown_handler();
 
     let state = AppState::from_settings(&settings.app).await?;
     let app = create_app(state);
 
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_handler)
         .await
         .context("application encountered an error")
 }

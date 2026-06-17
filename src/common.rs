@@ -13,3 +13,9 @@ pub fn init_tracing() {
 pub async fn init_listener(settings: &ServerSettings) -> tokio::io::Result<TcpListener> {
     TcpListener::bind((settings.host.as_str(), settings.port)).await
 }
+
+pub async fn graceful_shutdown_handler() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install Ctrl + C handler");
+}
