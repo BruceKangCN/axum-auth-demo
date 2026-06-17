@@ -1,14 +1,22 @@
 # Axum Auth Demo
 
-A demo backend application using `axum` which implements an OAuth2
-authentication process.
+A demo application using `axum` as backend which implements an OAuth 2.0
+authentication flow.
 
 The authentication is mainly implemented in `src/auth.rs`. `FromRequest` is
 implemented for `AuthenticatedUser` to simplify usage. See
-`crate::handler::greet::greet_handler` and `crate::handler::info::info_handler`
+`crate::handler::greet::handler` and `crate::handler::info::handler`
 for usage.
 
-## Requirement
+You can test this application using the demo front end in `/pages`:
+
+```shell
+$ cd pages
+$ pnpm install
+$ pnpm dev
+```
+
+## Requirements
 
 This application uses authentik as an external identity provider. You can
 follow the [instructions][1] to setup authentik.
@@ -19,43 +27,24 @@ Then you should follow the [document][2] to create an application in authentik.
 
 [2]: https://docs.goauthentik.io/install-config/first-steps/
 
-You can get a token with username and app password using `/application/o/token`
-endpoint.
+### Extra Requirements for Logout
 
-> [!NOTE]
-> App password is not your account password. It can be generated at Credentials
-> tab in your user settings page.
+OAuth 2.0 demand the usage of HTTPS scheme in revocation URL. If you want to
+use the logout handler, you need to setup an HTTPS reverse proxy server. You
+can use [Caddy][caddy] with the following `Caddyfile`:
 
-Example Python script:
+[caddy]: https://caddyserver.com
 
-```python
-import requests
+```caddyfile
+localhost
 
+reverse_proxy localhost:9000
+```
 
-AUTHENTIK_BASE_URL = "http://localhost:9000"
-CLIENT_ID = "zaimI2..."
-USERNAME = "foo"
-APP_PASSWORD = "UHcG5b..."
+and start a automatical HTTPS server with:
 
-token_url = f"{AUTHENTIK_BASE_URL}/application/o/token/"
-data = {
-    "grant_type": "password",
-    "username": USERNAME,
-    "password": APP_PASSWORD,
-    "client_id": CLIENT_ID,
-    "scope": "openid profile email",
-}
-headers = {
-    "Content-Type": "application/x-www-form-urlencoded",
-}
-response = requests.post(
-    token_url,
-    data=data,
-    headers=headers,
-)
-response.raise_for_status()
-
-print(response.json()["access_token"])
+```shell
+$ caddy run --config Caddyfile
 ```
 
 ## Settings
